@@ -13,12 +13,49 @@ page_bg_style = """
     <style>
         .stApp {background-color: #f5f5f5; color: black;}
         .stButton > button {background-color: #7388e3; color: white; border-radius: 5px; padding: 10px;}
+                .stMarkdown {color: black;}
+        .st-dataframe {border: 2px solid #4CC9F0; width: 100%; white-space: nowrap; overflow-x: auto;}
+        .st-emotion-cache-1avcm0n {
+            background-image: linear-gradient(to right, #f3a8ba 0%, #da8ce7 30%, #3d87e2 60%, #7388e3 100%);
+        }
         h1 {
             background-image: linear-gradient(to right, #3d87e2 0%, #7388e3 30%, #da8ce7 60%, #f3a8ba 100%);
             -webkit-background-clip: text;
             color: transparent;
             text-align: center;
             font-size: 5rem;
+        }
+        h2 {
+            color: black;
+            text-align: center;
+            font-size: 2rem;
+        }
+        h3 {color: black;}
+        .prediction-box {background-color: #4CC9F0; color: white; padding: 10px; border-radius: 10px;}
+        .stButton {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        div.stButton > button {
+            background-color: #5c88e3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        div.stButton > button:hover {
+            background-color: #b08be6;
+            color: white;
+        }
+        .st-emotion-cache-19rxjzo:focus:not(:active) {
+            background-color: #b08be6;
+            color: white;
+        }
+        .st-emotion-cache-1dp5vir {
+            background-image: transparent;
         }
     </style>
 """
@@ -85,16 +122,28 @@ def preprocess_data(data):
         return None
 
 if st.button('Predict'):
-    st.write("Processing data...")
     preprocessed_data = preprocess_data(df)
 
     if preprocessed_data is not None:
         try:
-            st.write("Predicting...")
+            st.markdown("""
+                <div style="color: #5c88e3; font-size: 24px; font-weight: bold; text-align: center;">
+                    Prediction successful!
+                </div>
+            """, unsafe_allow_html=True)
+
             predictions = model.predict(preprocessed_data)
             labels = label_encoder.inverse_transform(predictions)
-            st.success("Prediction successful!")
-            st.write("Predicted labels:")
-            st.write(labels)
+
+            col1, col2 = st.columns(2, gap="large")
+
+            with col1:
+                st.markdown("<h2 style='text-align: center; color: #b08be6;'>Expected Labels</h2>", unsafe_allow_html=True)
+                st.dataframe(df['Attack'], width=400, height=400)
+
+            with col2:
+                st.markdown("<h2 style='text-align: center; color: #b08be6;'>Predicted Labels</h2>", unsafe_allow_html=True)
+                st.dataframe(pd.DataFrame(labels, columns=["Predicted"]), width=400, height=400)
+
         except Exception as e:
             st.error(f"Error while predicting: {e}")
