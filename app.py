@@ -42,20 +42,31 @@ try:
 except Exception as e:
     st.error(f"Error loading model: {e}")
 
+# Load LabelEncoder
+label_encoder_path = "./label_encoder.joblib"
+try:
+    label_encoder = joblib.load(label_encoder_path)
+except Exception as e:
+    st.error(f"Error loading LabelEncoder: {e}")
+
 # Data preprocessing (same as we trained the model)
 def preprocess_data(data):
     try:
         if 'Attack' in data.columns:
             data = data.drop(columns=['Attack'])
-        
+
+        # st.write(f"Initial rows: {data.shape[0]}")
         # Eliminate Nans
         data = data.dropna()
 
+        # st.write(f"Rows after dropping NaNs: {data.shape[0]}")
         # Eliminate the biggest values
         for col in data.select_dtypes(include=[np.number]).columns:
             upper_limit = data[col].quantile(0.99)
             lower_limit = data[col].quantile(0.01)
             data = data[(data[col] <= upper_limit) & (data[col] >= lower_limit)]
+                        
+        # st.write(f"Rows after filtering column '{col}': {data.shape[0]}")
 
         non_numeric_cols = data.select_dtypes(include=['object']).columns
         encoder = LabelEncoder()
@@ -73,7 +84,6 @@ def preprocess_data(data):
         st.error(f"Error during preprocessing: {e}")
         return None
 
-# Predicción
 if st.button('Predict'):
     st.write("Processing data...")
     preprocessed_data = preprocess_data(df)
@@ -82,7 +92,9 @@ if st.button('Predict'):
         try:
             st.write("Predicting...")
             predictions = model.predict(preprocessed_data)
+            labels = label_encoder.inverse_transform(predictions)
             st.success("Prediction successful!")
-            st.write(predictions)
+            st.write("Predicted labels:")
+            st.write(labels)
         except Exception as e:
             st.error(f"Error while predicting: {e}")
