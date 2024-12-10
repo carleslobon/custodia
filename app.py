@@ -7,6 +7,9 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder, RobustScaler
 import joblib
 from sklearn.metrics import accuracy_score
+import os
+from email import policy
+from email.parser import BytesParser
 
 st.set_page_config(page_title="Custodia", layout="centered", initial_sidebar_state="collapsed")
 
@@ -65,36 +68,6 @@ st.markdown(page_bg_style, unsafe_allow_html=True)
 st.title("Custodia")
 st.markdown("## Protecting the digital future of small and medium-sized enterprises (SMEs).")
 
-# Load sample
-# file_path = "./dataset/data/sample.csv"
-file_path = "./samples/sample2.csv"
-try:
-    df = pd.read_csv(file_path)
-    st.dataframe(df.head(100), width=1200, height=3550)
-except Exception as e:
-    st.error(f"Error loading sample data: {e}")
-
-# Load model
-model_path = "./models/5m_100.joblib"
-try:
-    model = joblib.load(model_path)
-except Exception as e:
-    st.error(f"Error loading model: {e}")
-
-# Load LabelEncoder
-label_encoder_path = "./labels/label_encoder.joblib"
-try:
-    label_encoder = joblib.load(label_encoder_path)
-except Exception as e:
-    st.error(f"Error loading LabelEncoder: {e}")
-
-# Load LabelEncoder 2
-label_encoder_path_2 = "./labels/label_encoder_2.joblib"
-try:
-    label_encoder_2 = joblib.load(label_encoder_path_2)
-except Exception as e:
-    st.error(f"Error loading LabelEncoder: {e}")
-
 # Data preprocessing (same as we trained the model)
 def preprocess_data(data):
     try:
@@ -129,39 +102,114 @@ def preprocess_data(data):
         st.error(f"Error during preprocessing: {e}")
         return None
 
-if st.button('Predict'):
-    preprocessed_data = preprocess_data(df)
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = "IDs"
 
-    if preprocessed_data is not None:
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("IDs"):
+        st.session_state.active_tab = "IDs"
+
+with col2:
+    if st.button("Phishing"):
+        st.session_state.active_tab = "Phishing"
+
+if st.session_state.active_tab == "IDs":
+    # Load sample
+    # file_path = "./dataset/data/sample.csv"
+    file_path = "./samples/sample2.csv"
+    try:
+        df = pd.read_csv(file_path)
+        st.dataframe(df.head(100), width=1200, height=3550)
+    except Exception as e:
+        st.error(f"Error loading sample data: {e}")
+
+    # Load model
+    model_path = "./models/5m_100.joblib"
+    try:
+        model = joblib.load(model_path)
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+
+    # Load LabelEncoder
+    label_encoder_path = "./labels/label_encoder.joblib"
+    try:
+        label_encoder = joblib.load(label_encoder_path)
+    except Exception as e:
+        st.error(f"Error loading LabelEncoder: {e}")
+
+    # Load LabelEncoder 2
+    label_encoder_path_2 = "./labels/label_encoder_2.joblib"
+    try:
+        label_encoder_2 = joblib.load(label_encoder_path_2)
+    except Exception as e:
+        st.error(f"Error loading LabelEncoder: {e}")
+    if st.button('Predict'):
+        preprocessed_data = preprocess_data(df)
+
+        if preprocessed_data is not None:
+            try:
+                st.markdown("""
+                    <div style="color: #5c88e3; font-size: 20px; font-weight: bold; text-align: center;">
+                        Prediction successful!
+                    </div>
+                """, unsafe_allow_html=True)
+
+                predictions = model.predict(preprocessed_data)
+                # labels = label_encoder_2.inverse_transform(predictions)
+                labels = label_encoder.inverse_transform(predictions)
+
+                accuracy = accuracy_score(df['Attack'], labels) * 100
+
+                st.markdown(f"""
+                    <div style="color: #5c88e3; font-size: 24px; font-weight: bold; text-align: center;">
+                        Accuracy: {accuracy:.2f}%
+                    </div>
+                """, unsafe_allow_html=True)
+
+                col1, col2 = st.columns(2, gap="large")
+
+                with col1:
+                    st.markdown("<h2 style='text-align: center; color: #b08be6;'>Expected Labels</h2>", unsafe_allow_html=True)
+                    st.dataframe(df['Attack'], width=400, height=400)
+
+                with col2:
+                    st.markdown("<h2 style='text-align: center; color: #b08be6;'>Predicted Labels</h2>", unsafe_allow_html=True)
+                    st.dataframe(pd.DataFrame(labels, columns=["Predicted"]), width=400, height=400)
+
+            except Exception as e:
+                st.error(f"Error while predicting: {e}")
+else: # State is phishing
+    eml_file_1 = "./samples/sample_mail.eml"
+    eml_file_2 = "./samples/sample_mail2.eml"
+    
+    def read_eml_file(file_path):
         try:
-            st.markdown("""
-                <div style="color: #5c88e3; font-size: 20px; font-weight: bold; text-align: center;">
-                    Prediction successful!
-                </div>
-            """, unsafe_allow_html=True)
-
-            predictions = model.predict(preprocessed_data)
-            # labels = label_encoder_2.inverse_transform(predictions)
-            labels = label_encoder.inverse_transform(predictions)
-
-            accuracy = accuracy_score(df['Attack'], labels) * 100
-
-            # Mostrar la precisión
-            st.markdown(f"""
-                <div style="color: #5c88e3; font-size: 24px; font-weight: bold; text-align: center;">
-                    Accuracy: {accuracy:.2f}%
-                </div>
-            """, unsafe_allow_html=True)
-
-            col1, col2 = st.columns(2, gap="large")
-
-            with col1:
-                st.markdown("<h2 style='text-align: center; color: #b08be6;'>Expected Labels</h2>", unsafe_allow_html=True)
-                st.dataframe(df['Attack'], width=400, height=400)
-
-            with col2:
-                st.markdown("<h2 style='text-align: center; color: #b08be6;'>Predicted Labels</h2>", unsafe_allow_html=True)
-                st.dataframe(pd.DataFrame(labels, columns=["Predicted"]), width=400, height=400)
-
+            with open(file_path, 'rb') as f:
+                msg = BytesParser(policy=policy.default).parse(f)
+            subject = msg.get("Subject", "(No Subject)")
+            sender = msg.get("From", "(Unknown Sender)")
+            receiver = msg.get("To", "(Unknown Receiver)")
+            body = msg.get_body(preferencelist=('plain',)).get_content() if msg.get_body() else "(No Body)"
+            return subject, sender, receiver, body
         except Exception as e:
-            st.error(f"Error while predicting: {e}")
+            return None, None, None, f"Error reading email: {e}"
+    
+    # Read both emails
+    subject1, sender1, receiver1, body1 = read_eml_file(eml_file_1)
+    subject2, sender2, receiver2, body2 = read_eml_file(eml_file_2)
+    
+    # Display the content
+    for i, (subject, sender, receiver, body) in enumerate([(subject1, sender1, receiver1, body1), (subject2, sender2, receiver2, body2)], start=1):
+        st.markdown(f"""
+            <div style="background-color: #f3f3f3; padding: 20px; border-radius: 10px; margin: 20px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
+                <h3 style="color: #3d87e2;">Email {i}</h3>
+                <p><b>Subject:</b> {subject}</p>
+                <p><b>From:</b> {sender}</p>
+                <p><b>To:</b> {receiver}</p>
+                <p><b>Body:</b></p>
+                <div style="background-color: #ffffff; padding: 15px; border-radius: 5px; color: black;">
+                    <pre style="white-space: pre-wrap; word-wrap: break-word;">{body}</pre>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
