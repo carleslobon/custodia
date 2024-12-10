@@ -87,6 +87,13 @@ try:
 except Exception as e:
     st.error(f"Error loading LabelEncoder: {e}")
 
+# Load LabelEncoder 2
+label_encoder_path_2 = "./label_encoder_2.joblib"
+try:
+    label_encoder_2 = joblib.load(label_encoder_path_2)
+except Exception as e:
+    st.error(f"Error loading LabelEncoder: {e}")
+
 # Data preprocessing (same as we trained the model)
 def preprocess_data(data):
     try:
@@ -134,7 +141,8 @@ if st.button('Predict'):
             """, unsafe_allow_html=True)
 
             predictions = model.predict(preprocessed_data)
-            labels = label_encoder.inverse_transform(predictions)
+            labels = label_encoder_2.inverse_transform(predictions)
+            # labels = label_encoder.inverse_transform(labels)
 
             col1, col2 = st.columns(2, gap="large")
 
