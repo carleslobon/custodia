@@ -65,10 +65,11 @@ st.title("Custodia")
 st.markdown("## Protecting the digital future of small and medium-sized enterprises (SMEs).")
 
 # Load sample
-file_path = "./dataset/data/sample.csv"
+# file_path = "./dataset/data/sample.csv"
+file_path = "./sample2.csv"
 try:
     df = pd.read_csv(file_path)
-    st.dataframe(df.head(10), width=1200, height=400)
+    st.dataframe(df.head(100), width=1200, height=3550)
 except Exception as e:
     st.error(f"Error loading sample data: {e}")
 
