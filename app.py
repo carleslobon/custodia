@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, RobustScaler
 import joblib
+from sklearn.metrics import accuracy_score
 
 st.set_page_config(page_title="Custodia", layout="centered", initial_sidebar_state="collapsed")
 
@@ -66,7 +67,7 @@ st.markdown("## Protecting the digital future of small and medium-sized enterpri
 
 # Load sample
 # file_path = "./dataset/data/sample.csv"
-file_path = "./sample2.csv"
+file_path = "./samples/sample2.csv"
 try:
     df = pd.read_csv(file_path)
     st.dataframe(df.head(100), width=1200, height=3550)
@@ -74,21 +75,21 @@ except Exception as e:
     st.error(f"Error loading sample data: {e}")
 
 # Load model
-model_path = "./7c5m_200.joblib"
+model_path = "./models/5m_100.joblib"
 try:
     model = joblib.load(model_path)
 except Exception as e:
     st.error(f"Error loading model: {e}")
 
 # Load LabelEncoder
-label_encoder_path = "./label_encoder.joblib"
+label_encoder_path = "./labels/label_encoder.joblib"
 try:
     label_encoder = joblib.load(label_encoder_path)
 except Exception as e:
     st.error(f"Error loading LabelEncoder: {e}")
 
 # Load LabelEncoder 2
-label_encoder_path_2 = "./label_encoder_2.joblib"
+label_encoder_path_2 = "./labels/label_encoder_2.joblib"
 try:
     label_encoder_2 = joblib.load(label_encoder_path_2)
 except Exception as e:
@@ -98,20 +99,19 @@ except Exception as e:
 def preprocess_data(data):
     try:
         if 'Attack' in data.columns:
-            data = data.drop(columns=['Attack'])
+            data = data.drop(columns=['Attack', 'Dataset'])
 
         # st.write(f"Initial rows: {data.shape[0]}")
         # Eliminate Nans
         data = data.dropna()
 
         # st.write(f"Rows after dropping NaNs: {data.shape[0]}")
-        # Eliminate the biggest values
-        for col in data.select_dtypes(include=[np.number]).columns:
-            upper_limit = data[col].quantile(0.99)
-            lower_limit = data[col].quantile(0.01)
-            data = data[(data[col] <= upper_limit) & (data[col] >= lower_limit)]
-                        
-        # st.write(f"Rows after filtering column '{col}': {data.shape[0]}")
+        # Eliminate the biggest values. I do it previously when creating the sample, so is no need it.
+        # for col in data.select_dtypes(include=[np.number]).columns:
+        #     upper_limit = data[col].quantile(0.99)
+        #     lower_limit = data[col].quantile(0.01)
+        #     data = data[(data[col] <= upper_limit) & (data[col] >= lower_limit)]             
+        #     st.write(f"Rows after filtering column '{col}': {data.shape[0]}")
 
         non_numeric_cols = data.select_dtypes(include=['object']).columns
         encoder = LabelEncoder()
@@ -135,14 +135,23 @@ if st.button('Predict'):
     if preprocessed_data is not None:
         try:
             st.markdown("""
-                <div style="color: #5c88e3; font-size: 24px; font-weight: bold; text-align: center;">
+                <div style="color: #5c88e3; font-size: 20px; font-weight: bold; text-align: center;">
                     Prediction successful!
                 </div>
             """, unsafe_allow_html=True)
 
             predictions = model.predict(preprocessed_data)
-            labels = label_encoder_2.inverse_transform(predictions)
-            # labels = label_encoder.inverse_transform(labels)
+            # labels = label_encoder_2.inverse_transform(predictions)
+            labels = label_encoder.inverse_transform(predictions)
+
+            accuracy = accuracy_score(df['Attack'], labels) * 100
+
+            # Mostrar la precisión
+            st.markdown(f"""
+                <div style="color: #5c88e3; font-size: 24px; font-weight: bold; text-align: center;">
+                    Accuracy: {accuracy:.2f}%
+                </div>
+            """, unsafe_allow_html=True)
 
             col1, col2 = st.columns(2, gap="large")
 

@@ -4,7 +4,7 @@ import numpy as np
 # Ruta del archivo CSV original
 input_file = "./dataset/data/NF-UQ-NIDS-v2.csv"
 # Ruta para guardar el archivo de muestra
-output_file = "sample2.csv"
+output_file = "./samples/sample2.csv"
 
 # Cargar el CSV en un DataFrame
 data = pd.read_csv(input_file, nrows=150)
