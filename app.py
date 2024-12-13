@@ -1,6 +1,7 @@
 # Execute Carles computer: ~/.local/bin/streamlit run app.py
 
 # Imports
+import html
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -10,6 +11,7 @@ from sklearn.metrics import accuracy_score
 import os
 from email import policy
 from email.parser import BytesParser
+from SpamDetector import SpamDetector
 
 st.set_page_config(page_title="Custodia", layout="centered", initial_sidebar_state="collapsed")
 
@@ -102,6 +104,8 @@ def preprocess_data(data):
         st.error(f"Error during preprocessing: {e}")
         return None
 
+detector = SpamDetector()
+
 if 'active_tab' not in st.session_state:
     st.session_state.active_tab = "IDs"
 
@@ -180,7 +184,7 @@ if st.session_state.active_tab == "IDs":
             except Exception as e:
                 st.error(f"Error while predicting: {e}")
 else: # State is phishing
-    eml_file_1 = "./samples/sample_mail.eml"
+    eml_file_1 = "./samples/sample_mail1.eml"
     eml_file_2 = "./samples/sample_mail2.eml"
     
     def read_eml_file(file_path):
@@ -190,26 +194,35 @@ else: # State is phishing
             subject = msg.get("Subject", "(No Subject)")
             sender = msg.get("From", "(Unknown Sender)")
             receiver = msg.get("To", "(Unknown Receiver)")
-            body = msg.get_body(preferencelist=('plain',)).get_content() if msg.get_body() else "(No Body)"
-            return subject, sender, receiver, body
+            return subject, sender, receiver
         except Exception as e:
             return None, None, None, f"Error reading email: {e}"
     
     # Read both emails
-    subject1, sender1, receiver1, body1 = read_eml_file(eml_file_1)
-    subject2, sender2, receiver2, body2 = read_eml_file(eml_file_2)
+    subject1, sender1, receiver1 = read_eml_file(eml_file_1)
+    subject2, sender2, receiver2 = read_eml_file(eml_file_2)
     
     # Display the content
-    for i, (subject, sender, receiver, body) in enumerate([(subject1, sender1, receiver1, body1), (subject2, sender2, receiver2, body2)], start=1):
+    for i, (subject, sender, receiver) in enumerate([(subject1, sender1, receiver1), (subject2, sender2, receiver2)], start=1):
         st.markdown(f"""
             <div style="background-color: #f3f3f3; padding: 20px; border-radius: 10px; margin: 20px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
-                <h3 style="color: #3d87e2;">Email {i}</h3>
-                <p><b>Subject:</b> {subject}</p>
-                <p><b>From:</b> {sender}</p>
-                <p><b>To:</b> {receiver}</p>
-                <p><b>Body:</b></p>
-                <div style="background-color: #ffffff; padding: 15px; border-radius: 5px; color: black;">
-                    <pre style="white-space: pre-wrap; word-wrap: break-word;">{body}</pre>
-                </div>
+                <h3 style="color: #3d87e2;">Email {html.escape(str(i))}</h3>
+                <p><b>Subject:</b> {html.escape(subject)}</p>
+                <p><b>From:</b> {html.escape(sender)}</p>
+                <p><b>To:</b> {html.escape(receiver)}</p>
             </div>
         """, unsafe_allow_html=True)
+        if st.button(f'Predict{i}'):
+            response = detector.is_email_phishing(f"./samples/sample_mail{i}.eml")
+            if response:
+                st.markdown(f"""
+                    <div style="background-color: #4CC9F0; color: white; padding: 10px; border-radius: 10px; margin: 20px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
+                        <h3 style="color: white;">Prediction Result for Email {i}</h3>
+                """, unsafe_allow_html=True)
+                for key, value in response.items():
+                    st.markdown(f"""
+                        <p><b>{key}:</b> {value}</p>
+                    """, unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.error(f"Error in prediction for Email {i}")
