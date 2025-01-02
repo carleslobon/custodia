@@ -5,13 +5,14 @@ import html
 import streamlit as st
 import pandas as pd
 import numpy as np
+import sklearn 
 from sklearn.preprocessing import LabelEncoder, RobustScaler
 import joblib
 from sklearn.metrics import accuracy_score
-import os
 from email import policy
 from email.parser import BytesParser
 from SpamDetector import SpamDetector
+from EmailSender import EmailSender
 
 st.set_page_config(page_title="Custodia", layout="centered", initial_sidebar_state="collapsed")
 
@@ -139,6 +140,7 @@ if st.session_state.active_tab == "IDs":
     label_encoder_path = "./labels/label_encoder.joblib"
     try:
         label_encoder = joblib.load(label_encoder_path)
+        print(label_encoder)
     except Exception as e:
         st.error(f"Error loading LabelEncoder: {e}")
 
@@ -162,8 +164,10 @@ if st.session_state.active_tab == "IDs":
                 predictions = model.predict(preprocessed_data)
                 # labels = label_encoder_2.inverse_transform(predictions)
                 labels = label_encoder.inverse_transform(predictions)
-
                 accuracy = accuracy_score(df['Attack'], labels) * 100
+
+                es = EmailSender()
+                es.sendEmail(labels, df['IPV4_SRC_ADDR'], df['IPV4_DST_ADDR'])
 
                 st.markdown(f"""
                     <div style="color: #5c88e3; font-size: 24px; font-weight: bold; text-align: center;">
