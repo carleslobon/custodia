@@ -1,0 +1,25 @@
+Received: from MX25.mail.fake-outlook.com (::1) by
+    MX28.mail.fake-outlook.com with HTTPS; Thu, 8 Jan 2025 14:12:34 +0000
+Received: from CH1PR23CA0003.namprd23.prod.outlook.com (2603:10b6:611:50::22)
+    by MX25.mail.fake-outlook.com (2603:10b6:a03:580::18) with
+    Microsoft SMTP Server (version=TLS1_2,
+    cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.20.8114.30;
+    Thu, 8 Jan 2025 14:12:31 +0000
+From: "Alvaro Martinez" <alvaro.martinez@company-managment.com>
+To: "Gerard Gispert Carreras" <gerard.gispert@amphora-logistics.com>
+Subject: Action Required: Review Budget Update for 2024
+Content-Type: text/html; charset="utf-8"
+Message-ID: <162990889564520980@company-managment.com>
+Date: Thu, 8 Jan 2025 14:12:31 +0000
+
+<html>
+  <body>
+    <p>Hi Gerard,</p>
+    <p>I'm Alvaro, the CEO of your bussiness.</p>
+    <p>Please find the <b>Budget Update 2024</b> attached for your review. It's critical that you review it and approve the changes immediately.</p>
+    <p>You can also <a href="http://secure-documents-update.com/budget2024">view the budget online here</a>.</p>
+    <p>This must be completed before our next meeting. If you encounter any problems accessing the file, let me know immediately.</p>
+    <p>Best regards,<br>Alvaro</p>
+  </body>
+</html>
+Attachment: Budget_Update_2024.pdf
