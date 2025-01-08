@@ -188,9 +188,8 @@ if st.session_state.active_tab == "IDs":
             except Exception as e:
                 st.error(f"Error while predicting: {e}")
 else: # State is phishing
-    eml_file_1 = "./samples/sample_mail1.eml"
-    eml_file_2 = "./samples/sample_mail2.eml"
-    
+    eml_file_1 = "./samples/sample_mail0.eml"
+
     def read_eml_file(file_path):
         try:
             with open(file_path, 'rb') as f:
@@ -201,23 +200,34 @@ else: # State is phishing
             return subject, sender, receiver
         except Exception as e:
             return None, None, None, f"Error reading email: {e}"
-    
+
     # Read both emails
     subject1, sender1, receiver1 = read_eml_file(eml_file_1)
-    subject2, sender2, receiver2 = read_eml_file(eml_file_2)
-    
+
     # Display the content
-    for i, (subject, sender, receiver) in enumerate([(subject1, sender1, receiver1), (subject2, sender2, receiver2)], start=1):
-        st.markdown(f"""
+    for i, (subject, sender, receiver) in enumerate([(subject1, sender1, receiver1)], start=1):
+        st.markdown(
+            f"""
             <div style="background-color: #f3f3f3; padding: 20px; border-radius: 10px; margin: 20px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
                 <h3 style="color: #3d87e2;">Email {html.escape(str(i))}</h3>
                 <p><b>Subject:</b> {html.escape(subject)}</p>
                 <p><b>From:</b> {html.escape(sender)}</p>
                 <p><b>To:</b> {html.escape(receiver)}</p>
+                <p><b>Body:</b></p>
+                <body>
+                    <p>Hi Gerard,</p>
+                    <p>I'm Alvaro, the CEO of your business.</p>
+                    <p>Please find the <b>Budget Update 2024</b> attached for your review. It's critical that you review it and approve the changes immediately.</p>
+                    <p>You can also <a href="http://secure-documents-update.com/budget2024">view the budget online here</a>.</p>
+                    <p>This must be completed before our next meeting. If you encounter any problems accessing the file, let me know immediately.</p>
+                    <p>Best regards,<br>Alvaro</p>
+                </body>
             </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
         if st.button(f'Predict{i}'):
-            response = detector.is_email_phishing(f"./samples/sample_mail{i}.eml")
+            response = detector.is_email_phishing(f"./samples/sample_mail{i-1}.eml")
             if response:
                 st.markdown(f"""
                     <div style="background-color: #4CC9F0; color: white; padding: 10px; border-radius: 10px; margin: 20px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
