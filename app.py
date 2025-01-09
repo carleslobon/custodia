@@ -1,12 +1,12 @@
-# Execute Carles computer: ~/.local/bin/streamlit run app.py
+# Execute on Carles computer: ~/.local/bin/streamlit run app.py
 
 # Imports
 import html
 import streamlit as st
 import pandas as pd
 import numpy as np
-import sklearn 
-from sklearn.preprocessing import LabelEncoder, RobustScaler
+import tensorflow as tf
+from tensorflow import keras
 import joblib
 from sklearn.metrics import accuracy_score
 from email import policy
@@ -18,13 +18,29 @@ st.set_page_config(page_title="Custodia", layout="centered", initial_sidebar_sta
 
 page_bg_style = """
     <style>
-        .stApp {background-color: #f5f5f5; color: black;}
-        .stButton > button {background-color: #7388e3; color: white; border-radius: 5px; padding: 10px;}
-                .stMarkdown {color: black;}
-        .st-dataframe {border: 2px solid #4CC9F0; width: 100%; white-space: nowrap; overflow-x: auto;}
-        .st-emotion-cache-1avcm0n {
-            background-image: linear-gradient(to right, #f3a8ba 0%, #da8ce7 30%, #3d87e2 60%, #7388e3 100%);
+        /* Set the main app background and default text color */
+        .stApp {
+            background-color: #f5f5f5;
+            color: #000000; /* Black text for contrast */
         }
+
+        /* Style for buttons */
+        .stButton > button {
+            background-color: #5c88e3; /* Changed to a slightly different shade for consistency */
+            color: white;
+            border-radius: 8px;
+            font-size: 18px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        /* Hover effect for buttons */
+        div.stButton > button:hover {
+            background-color: #b08be6;
+            color: white;
+        }
+
+        /* Header styles */
         h1 {
             background-image: linear-gradient(to right, #3d87e2 0%, #7388e3 30%, #da8ce7 60%, #f3a8ba 100%);
             -webkit-background-clip: text;
@@ -33,36 +49,42 @@ page_bg_style = """
             font-size: 5rem;
         }
         h2 {
-            color: black;
+            color: #000000; /* Black text */
             text-align: center;
             font-size: 2rem;
         }
-        h3 {color: black;}
-        .prediction-box {background-color: #4CC9F0; color: white; padding: 10px; border-radius: 10px;}
-        .stButton {
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        h3 {
+            color: #000000; /* Black text */
         }
-        div.stButton > button {
-            background-color: #5c88e3;
+
+        /* Dataframe styling */
+        .st-dataframe {
+            border: 2px solid #4CC9F0;
+            width: 100%;
+            white-space: nowrap;
+            overflow-x: auto;
+            background-color: #ffffff; /* White background for dataframes */
+            color: #000000; /* Black text for dataframes */
+        }
+
+        /* Prediction box styling */
+        .prediction-box {
+            background-color: #4CC9F0;
             color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 18px;
-            padding: 10px 20px;
-            cursor: pointer;
+            padding: 10px;
+            border-radius: 10px;
         }
-        div.stButton > button:hover {
-            background-color: #b08be6;
-            color: white;
+
+        /* Markdown text styling */
+        .stMarkdown {
+            color: #000000; /* Black text */
         }
-        .st-emotion-cache-19rxjzo:focus:not(:active) {
-            background-color: #b08be6;
-            color: white;
-        }
-        .st-emotion-cache-1dp5vir {
-            background-image: transparent;
+
+        /* Specific cache-related styles (optional) */
+        .st-emotion-cache-1avcm0n, .st-emotion-cache-19rxjzo:focus:not(:active), .st-emotion-cache-1dp5vir {
+            /* Removed or adjusted conflicting styles */
+            background-image: none;
+            color: #000000; /* Ensure text is black */
         }
     </style>
 """
@@ -71,123 +93,165 @@ st.markdown(page_bg_style, unsafe_allow_html=True)
 st.title("Custodia")
 st.markdown("## Protecting the digital future of small and medium-sized enterprises (SMEs).")
 
-# Data preprocessing (same as we trained the model)
-def preprocess_data(data):
+# Data preprocessing function
+def preprocess_data(data, scaler, label_encoder):
     try:
-        if 'Attack' in data.columns:
-            data = data.drop(columns=['Attack', 'Dataset'])
+        # Display DataFrame columns for debugging
+        st.write("**Columns in the DataFrame:**", data.columns.tolist())
+        
+        # Identify the 'Attack' column in a case-insensitive manner
+        attack_column = None
+        for col in data.columns:
+            if col.lower() == 'attack':
+                attack_column = col
+                break
+        
+        if not attack_column:
+            st.error("The 'Attack' column is missing from the dataset.")
+            return None, None
+        
+        # Drop unnecessary columns, but keep 'Attack'
+        data = data.drop(columns=['Dataset', 'Label'], errors='ignore')
 
-        # st.write(f"Initial rows: {data.shape[0]}")
-        # Eliminate Nans
-        data = data.dropna()
+        # Drop rows with missing target
+        data = data.dropna(subset=[attack_column])
+        
+        if data.empty:
+            st.error("No data available after dropping rows with missing 'Attack' values.")
+            return None, None
 
-        # st.write(f"Rows after dropping NaNs: {data.shape[0]}")
-        # Eliminate the biggest values. I do it previously when creating the sample, so is no need it.
-        # for col in data.select_dtypes(include=[np.number]).columns:
-        #     upper_limit = data[col].quantile(0.99)
-        #     lower_limit = data[col].quantile(0.01)
-        #     data = data[(data[col] <= upper_limit) & (data[col] >= lower_limit)]             
-        #     st.write(f"Rows after filtering column '{col}': {data.shape[0]}")
+        # Extract labels
+        labels = data.pop(attack_column)
 
-        non_numeric_cols = data.select_dtypes(include=['object']).columns
-        encoder = LabelEncoder()
-        for col in non_numeric_cols:
-            data[col] = encoder.fit_transform(data[col])
+        # Convert object columns -> numeric (hashing)
+        for col in data.select_dtypes(include=['object']).columns:
+            data[col] = data[col].apply(
+                lambda x: hash(x) % (2**31) if pd.notna(x) else 0
+            )
 
-        # Normalize numeric columns
-        numeric_cols = data.select_dtypes(include=[np.number]).columns
-        scaler = RobustScaler()
-        data[numeric_cols] = scaler.fit_transform(data[numeric_cols])
+        # Select numeric columns
+        X = data.select_dtypes(include=[np.number]).astype(np.float64)
+        X.replace([np.inf, -np.inf], np.nan, inplace=True)
+        X = X.clip(-1e5, 1e5)  # CLAMP_VALUE as per evaluate.py
+        X.fillna(0, inplace=True)  # Assuming scaler was fitted with no NaNs
 
-        return data
+        # Scale features
+        if scaler is not None:
+            X = scaler.transform(X)
+        X = X.astype(np.float32)
+
+        # Encode labels
+        y_encoded = label_encoder.transform(labels)
+
+        return X, y_encoded
 
     except Exception as e:
         st.error(f"Error during preprocessing: {e}")
-        return None
+        return None, None
 
+# Initialize SpamDetector
 detector = SpamDetector()
 
-if 'active_tab' not in st.session_state:
-    st.session_state.active_tab = "IDs"
+# Load Keras model, scaler, and label encoder
+@st.cache_resource(show_spinner=False)
+def load_model_and_scalers():
+    model = None
+    scaler = None
+    label_encoder = None
+    errors = []
 
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("IDs"):
-        st.session_state.active_tab = "IDs"
+    try:
+        model = keras.models.load_model("./NeuralNetwork/netflow_classification_model_conditional_epochs.keras")
+    except Exception as e:
+        errors.append(f"Error loading Keras model: {e}")
 
-with col2:
-    if st.button("Phishing"):
-        st.session_state.active_tab = "Phishing"
+    try:
+        label_encoder = joblib.load("./NeuralNetwork/label_encoder.pkl")
+    except Exception as e:
+        errors.append(f"Error loading LabelEncoder: {e}")
 
-if st.session_state.active_tab == "IDs":
+    try:
+        scaler = joblib.load("./NeuralNetwork/scaler.pkl")
+    except Exception as e:
+        errors.append(f"Error loading Scaler: {e}")
+
+    return model, scaler, label_encoder, errors
+
+model, scaler, label_encoder, load_errors = load_model_and_scalers()
+
+# Display loading status
+for error in load_errors:
+    st.error(error)
+
+if model:
+    st.success("Keras model loaded successfully.")
+if label_encoder:
+    st.success("LabelEncoder loaded successfully.")
+if scaler:
+    st.success("Scaler loaded successfully.")
+
+# Create Tabs using Streamlit's built-in tab functionality
+tabs = st.tabs(["IDs", "Phishing"])
+
+with tabs[0]:
+    st.header("IDs Analysis")
     # Load sample
-    # file_path = "./dataset/data/sample.csv"
     file_path = "./samples/sample2.csv"
     try:
         df = pd.read_csv(file_path)
-        st.dataframe(df.head(100), width=1200, height=3550)
+        st.write("**Sample Data (First 100 Rows):**")
+        st.dataframe(df.head(100), width=1200, height=700)
     except Exception as e:
         st.error(f"Error loading sample data: {e}")
 
-    # Load model
-    model_path = "./models/5m_100.joblib"
-    try:
-        model = joblib.load(model_path)
-    except Exception as e:
-        st.error(f"Error loading model: {e}")
+    if model is not None and scaler is not None and label_encoder is not None:
+        if st.button('Predict', key='predict_ids'):
+            preprocessed_data, y_true = preprocess_data(df, scaler, label_encoder)
 
-    # Load LabelEncoder
-    label_encoder_path = "./labels/label_encoder.joblib"
-    try:
-        label_encoder = joblib.load(label_encoder_path)
-        print(label_encoder)
-    except Exception as e:
-        st.error(f"Error loading LabelEncoder: {e}")
+            if preprocessed_data is not None and y_true is not None:
+                try:
+                    st.markdown("""
+                        <div style="color: #5c88e3; font-size: 20px; font-weight: bold; text-align: center;">
+                            Prediction successful!
+                        </div>
+                    """, unsafe_allow_html=True)
 
-    # Load LabelEncoder 2
-    label_encoder_path_2 = "./labels/label_encoder_2.joblib"
-    try:
-        label_encoder_2 = joblib.load(label_encoder_path_2)
-    except Exception as e:
-        st.error(f"Error loading LabelEncoder: {e}")
-    if st.button('Predict'):
-        preprocessed_data = preprocess_data(df)
+                    # Predict probabilities
+                    predictions_prob = model.predict(preprocessed_data)
+                    # Get predicted class indices
+                    predictions = np.argmax(predictions_prob, axis=1)
+                    # Inverse transform to get original labels
+                    labels = label_encoder.inverse_transform(predictions)
+                    # Calculate accuracy
+                    accuracy = accuracy_score(y_true, predictions) * 100
 
-        if preprocessed_data is not None:
-            try:
-                st.markdown("""
-                    <div style="color: #5c88e3; font-size: 20px; font-weight: bold; text-align: center;">
-                        Prediction successful!
-                    </div>
-                """, unsafe_allow_html=True)
+                    # Send email with predictions
+                    es = EmailSender()
+                    es.sendEmail(labels, df['IPV4_SRC_ADDR'], df['IPV4_DST_ADDR'])
 
-                predictions = model.predict(preprocessed_data)
-                # labels = label_encoder_2.inverse_transform(predictions)
-                labels = label_encoder.inverse_transform(predictions)
-                accuracy = accuracy_score(df['Attack'], labels) * 100
+                    st.markdown(f"""
+                        <div style="color: #5c88e3; font-size: 24px; font-weight: bold; text-align: center;">
+                            Accuracy: {accuracy:.2f}%
+                        </div>
+                    """, unsafe_allow_html=True)
 
-                es = EmailSender()
-                es.sendEmail(labels, df['IPV4_SRC_ADDR'], df['IPV4_DST_ADDR'])
+                    col1, col2 = st.columns(2, gap="large")
 
-                st.markdown(f"""
-                    <div style="color: #5c88e3; font-size: 24px; font-weight: bold; text-align: center;">
-                        Accuracy: {accuracy:.2f}%
-                    </div>
-                """, unsafe_allow_html=True)
+                    with col1:
+                        st.markdown("<h2 style='text-align: center; color: #b08be6;'>True Labels</h2>", unsafe_allow_html=True)
+                        st.dataframe(pd.Series(y_true, name="True"), width=400, height=400)
 
-                col1, col2 = st.columns(2, gap="large")
+                    with col2:
+                        st.markdown("<h2 style='text-align: center; color: #b08be6;'>Predicted Labels</h2>", unsafe_allow_html=True)
+                        st.dataframe(pd.Series(labels, name="Predicted"), width=400, height=400)
 
-                with col1:
-                    st.markdown("<h2 style='text-align: center; color: #b08be6;'>Expected Labels</h2>", unsafe_allow_html=True)
-                    st.dataframe(df['Attack'], width=400, height=400)
+                except Exception as e:
+                    st.error(f"Error while predicting: {e}")
+    else:
+        st.error("Model, Scaler, or Label Encoder not loaded properly.")
 
-                with col2:
-                    st.markdown("<h2 style='text-align: center; color: #b08be6;'>Predicted Labels</h2>", unsafe_allow_html=True)
-                    st.dataframe(pd.DataFrame(labels, columns=["Predicted"]), width=400, height=400)
-
-            except Exception as e:
-                st.error(f"Error while predicting: {e}")
-else: # State is phishing
+with tabs[1]:
+    st.header("Phishing Detection")
     eml_file_1 = "./samples/sample_mail0.eml"
 
     def read_eml_file(file_path):
@@ -199,20 +263,21 @@ else: # State is phishing
             receiver = msg.get("To", "(Unknown Receiver)")
             return subject, sender, receiver
         except Exception as e:
-            return None, None, None, f"Error reading email: {e}"
+            st.error(f"Error reading email: {e}")
+            return None, None, None
 
-    # Read both emails
+    # Read the email
     subject1, sender1, receiver1 = read_eml_file(eml_file_1)
 
-    # Display the content
-    for i, (subject, sender, receiver) in enumerate([(subject1, sender1, receiver1)], start=1):
+    if subject1 and sender1 and receiver1:
+        # Display the content
         st.markdown(
             f"""
             <div style="background-color: #f3f3f3; padding: 20px; border-radius: 10px; margin: 20px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
-                <h3 style="color: #3d87e2;">Email {html.escape(str(i))}</h3>
-                <p><b>Subject:</b> {html.escape(subject)}</p>
-                <p><b>From:</b> {html.escape(sender)}</p>
-                <p><b>To:</b> {html.escape(receiver)}</p>
+                <h3 style="color: #3d87e2;">Email 1</h3>
+                <p><b>Subject:</b> {html.escape(subject1)}</p>
+                <p><b>From:</b> {html.escape(sender1)}</p>
+                <p><b>To:</b> {html.escape(receiver1)}</p>
                 <p><b>Body:</b></p>
                 <body>
                     <p>Hi Gerard,</p>
@@ -226,17 +291,17 @@ else: # State is phishing
         """,
             unsafe_allow_html=True,
         )
-        if st.button(f'Predict{i}'):
-            response = detector.is_email_phishing(f"./samples/sample_mail{i-1}.eml")
+        if st.button('Predict1', key='predict_phishing_1'):
+            response = detector.is_email_phishing(f"./samples/sample_mail0.eml")
             if response:
                 st.markdown(f"""
                     <div style="background-color: #4CC9F0; color: white; padding: 10px; border-radius: 10px; margin: 20px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
-                        <h3 style="color: white;">Prediction Result for Email {i}</h3>
+                        <h3 style="color: white;">Prediction Result for Email 1</h3>
                 """, unsafe_allow_html=True)
                 for key, value in response.items():
                     st.markdown(f"""
-                        <p><b>{key}:</b> {value}</p>
+                        <p><b>{html.escape(key)}:</b> {html.escape(str(value))}</p>
                     """, unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
             else:
-                st.error(f"Error in prediction for Email {i}")
+                st.error(f"Error in prediction for Email 1")
